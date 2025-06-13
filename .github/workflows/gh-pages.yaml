@@ -1,4 +1,4 @@
-name: tutorial::gh_pages
+name: GitHub Pages
 on:
   push:
     branches:
@@ -8,7 +8,7 @@ on:
 permissions:
   pages: write
   id-token: write
-  contents: read
+  contents: write
 
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
@@ -24,26 +24,37 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - run: git submodule update --init --recursive
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Download font assets
         # use fonts in stable releases
         run: |
           mkdir -p assets/fonts/
-          curl -L https://github.com/Myriad-Dreamin/shiroa/releases/download/v0.1.2/font-assets.tar.gz | tar -xvz -C assets/fonts
+          curl -L https://github.com/Myriad-Dreamin/shiroa/releases/download/v0.1.0/charter-font-assets.tar.gz | tar -xvz -C assets/fonts/
+          curl -L https://github.com/Myriad-Dreamin/shiroa/releases/download/v0.1.5/source-han-serif-font-assets.tar.gz | tar -xvz -C assets/fonts/
+          curl -L https://use.fontawesome.com/releases/v6.4.2/fontawesome-free-6.4.2-desktop.zip -o fontawesome-free-6.4.2-desktop.zip
+          unzip fontawesome-free-6.4.2-desktop.zip
+          cp -v -r fontawesome-free-6.4.2-desktop/otfs/* assets/fonts/
       - name: Download & install shiroa
         run: |
-          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/Myriad-Dreamin/shiroa/releases/download/v0.3.1-rc2/shiroa-installer.sh | sh
+          curl -L https://github.com/Myriad-Dreamin/shiroa/releases/download/v0.3.1-rc2/shiroa-x86_64-unknown-linux-gnu.tar.gz | tar -xvz
+          chmod +x shiroa-x86_64-unknown-linux-gnu/shiroa
+          sudo cp shiroa-x86_64-unknown-linux-gnu/shiroa /usr/bin/shiroa
       - name: Build Book
         run: |
-          shiroa build --font-path ./assets/typst-fonts/ --font-path ./assets/fonts/ --path-to-root /tutorial/ -w . src 
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
-        with:
-          # Upload `/github-pages` sub directory
-          path: './dist'
+          shiroa build --font-path assets/fonts -w . -d ./dist .
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          cp CNAME dist/
+          cd dist
+          git init
+          git config user.email "no-reply@github.com"
+          git config user.name "owo-bot"
+          git add *
+          git commit -m "GitHub Actions Automated Deploy"
+          git remote add origin "https://owo-bot:$GH_TOKEN@github.com/iohehe/iohehe.github.io.git"
+          git branch -M main
+          git push -f -u origin main
